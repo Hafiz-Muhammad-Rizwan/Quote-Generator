@@ -56,7 +56,7 @@ export async function shareQuote(quote: Quote): Promise<boolean> {
 }
 
 // Debounce function for search input
-export function debounce<T extends (...args: unknown[]) => void | Promise<void>>(
+export function debounce<T extends (...args: never[]) => unknown>(
   func: T,
   delay: number
 ): (...args: Parameters<T>) => void {
