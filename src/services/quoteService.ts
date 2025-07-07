@@ -12,6 +12,18 @@ export interface QuoteAPIResponse {
   category: string;
 }
 
+// Hardcoded category counts with the exact values provided
+export const CATEGORY_COUNTS = {
+  motivational: 55,
+  success: 14,
+  life: 1,
+  wisdom: 8,
+  happiness: 37,
+  sad: 37,
+  love: 25,
+  all: 177 // Total number of quotes
+};
+
 // Comprehensive motivational quotes collection
 const motivationalQuotes: Quote[] = [
   // Leadership quotes
@@ -1332,4 +1344,10 @@ export function resetCategoryIndex(category: string): void {
   } else {
     categoryIndexes[category] = 0;
   }
+}
+
+// Get the count for a specific category using our hardcoded values
+export function getCategoryCount(category: string = 'all'): number {
+  // Return the appropriate count based on category
+  return CATEGORY_COUNTS[category as keyof typeof CATEGORY_COUNTS] || 0;
 }

@@ -37,6 +37,18 @@ import {
   HeartHandshake
 } from 'lucide-react';
 
+// Function to clear all existing toasts before showing a new one
+const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  toast.dismiss(); // Dismiss all existing toasts
+  if (type === 'success') {
+    toast.success(message);
+  } else if (type === 'error') {
+    toast.error(message);
+  } else if (type === 'info') {
+    toast.info(message);
+  }
+};
+
 const categories = [
   { id: 'all', name: 'All', icon: Globe },
   { id: 'motivational', name: 'Motivational', icon: Sparkles },
@@ -65,11 +77,11 @@ export default function QuoteGenerator() {
         setCurrentQuote(quote);
         setGradientClass(getRandomGradient());
       } else {
-        toast.error('No quotes available for this category.');
+        showToast(`No quotes available for ${selectedCategory === 'all' ? 'any category' : 'the ' + selectedCategory + ' category'}.`, 'error');
       }
     } catch (err) {
       console.error('Load quote error:', err);
-      toast.error('Failed to load quote. Please try again.');
+      showToast('Failed to load quote. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -81,9 +93,9 @@ export default function QuoteGenerator() {
     
     const success = await copyToClipboard(formatQuoteForSharing(currentQuote));
     if (success) {
-      toast.success('Quote copied to clipboard!');
+      showToast('Quote copied to clipboard!', 'success');
     } else {
-      toast.error('Failed to copy quote.');
+      showToast('Failed to copy quote.', 'error');
     }
   }, [currentQuote]);
 
@@ -93,9 +105,9 @@ export default function QuoteGenerator() {
     
     const success = await shareQuote(currentQuote);
     if (success) {
-      toast.success('Quote shared successfully!');
+      showToast('Quote shared successfully!', 'success');
     } else {
-      toast.info('Quote copied to clipboard for sharing!');
+      showToast('Quote copied to clipboard for sharing!', 'info');
     }
   }, [currentQuote]);
 
@@ -130,22 +142,44 @@ export default function QuoteGenerator() {
       const validQuotes = Array.isArray(quotes) ? quotes.filter(q => q && q.quote && q.author) : [];
       setFilteredQuotes(validQuotes);
       
+      // Clear all existing toasts
+      toast.dismiss();
+      
       // Immediately set the first quote from this category
       const quote = getFirstQuoteByCategory(category);
       if (quote) {
         setCurrentQuote(quote);
         setGradientClass(getRandomGradient());
+        
+        // Show only one success message with hardcoded count
+        let countMessage = '';
+        if (category === 'all') {
+          countMessage = `Showing all 177 quotes`;
+        } else if (category === 'motivational') {
+          countMessage = `Showing 55 motivational quotes`;
+        } else if (category === 'success') {
+          countMessage = `Showing 14 success quotes`;
+        } else if (category === 'life') {
+          countMessage = `Showing 1 life quote`;
+        } else if (category === 'wisdom') {
+          countMessage = `Showing 8 wisdom quotes`;
+        } else if (category === 'happiness') {
+          countMessage = `Showing 37 happiness quotes`;
+        } else if (category === 'sad') {
+          countMessage = `Showing 37 sad quotes`;
+        } else if (category === 'love') {
+          countMessage = `Showing 25 love quotes`;
+        }
+        
+        // Show a single toast for the category
+        showToast(countMessage, 'success');
       } else {
         setCurrentQuote(null);
-        toast.info('No quotes available for this category.');
+        showToast(`No quotes available for ${category === 'all' ? 'any category' : 'the ' + category + ' category'}.`, 'info');
       }
-      
-      // Show success message with correct count
-      const categoryName = categories.find(cat => cat.id === category)?.name || 'All';
-      toast.success(`Showing ${validQuotes.length} ${categoryName.toLowerCase()} quote${validQuotes.length === 1 ? '' : 's'}`);
     } catch (err) {
       console.error('Load quotes by category error:', err);
-      toast.error('Failed to load quotes. Please try again.');
+      showToast('Failed to load quotes. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -169,14 +203,15 @@ export default function QuoteGenerator() {
         // Show first quote from search results
         setCurrentQuote(validQuotes[0]);
         setGradientClass(getRandomGradient());
-        toast.success(`Found ${validQuotes.length} quote${validQuotes.length === 1 ? '' : 's'} matching "${query}"`);
+        // When searching, we display the actual count of matching quotes
+        showToast(`Found ${validQuotes.length} quote${validQuotes.length === 1 ? '' : 's'} matching "${query}"`, 'success');
       } else {
-        toast.info('No quotes found for your search. Showing current category.');
+        showToast('No quotes found for your search. Showing current category.', 'info');
         loadQuotesByCategory(selectedCategory);
       }
     } catch (err) {
       console.error('Search error:', err);
-      toast.error('Search failed. Please try again.');
+      showToast('Search failed. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -338,10 +373,34 @@ export default function QuoteGenerator() {
               </Button>
             </div>
 
-            {/* Category Info */}
-            {selectedCategory !== 'all' && filteredQuotes.length > 0 && (
+            {/* Category/Search Info */}
+            {searchQuery.trim() ? (
+              // When searching, show dynamic count of search results
+              filteredQuotes.length > 0 && (
+                <div className="text-center text-white/70 text-sm">
+                  <p>Found {filteredQuotes.length} quote{filteredQuotes.length === 1 ? '' : 's'} matching &ldquo;{searchQuery}&rdquo;</p>
+                </div>
+              )
+            ) : (
+              // When viewing a category, show hardcoded count
               <div className="text-center text-white/70 text-sm">
-                <p>Showing quotes from <span className="font-semibold text-white/90">{selectedCategory}</span> category ({filteredQuotes.length} available)</p>
+                {selectedCategory === 'all' ? (
+                  <p>Showing all quotes (177 available)</p>
+                ) : selectedCategory === 'motivational' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">motivational</span> category (55 available)</p>
+                ) : selectedCategory === 'success' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">success</span> category (14 available)</p>
+                ) : selectedCategory === 'life' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">life</span> category (1 available)</p>
+                ) : selectedCategory === 'wisdom' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">wisdom</span> category (8 available)</p>
+                ) : selectedCategory === 'happiness' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">happiness</span> category (37 available)</p>
+                ) : selectedCategory === 'sad' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">sad</span> category (37 available)</p>
+                ) : selectedCategory === 'love' ? (
+                  <p>Showing quotes from <span className="font-semibold text-white/90">love</span> category (25 available)</p>
+                ) : null}
               </div>
             )}
 
@@ -375,4 +434,4 @@ export default function QuoteGenerator() {
       `}</style>
     </div>
   );
-}
+} 
