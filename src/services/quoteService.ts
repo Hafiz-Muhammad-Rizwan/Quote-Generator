@@ -1221,7 +1221,7 @@ export async function fetchQuotesByCategory(category?: string): Promise<Quote[]>
   // Filter by category if specified
   if (category && category !== 'all') {
     const filteredQuotes = motivationalQuotes.filter(q => q.category === category);
-    return filteredQuotes.length > 0 ? filteredQuotes : motivationalQuotes.slice(0, 10);
+    return filteredQuotes.length > 0 ? filteredQuotes : [];
   }
 
   return motivationalQuotes;
@@ -1247,4 +1247,89 @@ export async function searchQuotes(query: string): Promise<Quote[]> {
 // Get a random quote
 export async function getRandomQuote(): Promise<Quote> {
   return motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+}
+
+// Get all unique categories for debugging
+export function getAvailableCategories(): string[] {
+  const categories = new Set<string>();
+  motivationalQuotes.forEach(quote => {
+    if (quote.category) {
+      categories.add(quote.category);
+    }
+  });
+  return Array.from(categories).sort();
+}
+
+// Track current index for each category for sequential display
+const categoryIndexes: { [key: string]: number } = {
+  'all': 0,
+  'motivational': 0,
+  'success': 0,
+  'life': 0,
+  'wisdom': 0,
+  'happiness': 0,
+  'sad': 0,
+  'love': 0
+};
+
+// Get next quote sequentially from a category
+export function getNextQuoteByCategory(category: string = 'all'): Quote {
+  let quotes: Quote[];
+  
+  if (category === 'all') {
+    quotes = motivationalQuotes;
+  } else {
+    quotes = motivationalQuotes.filter(q => q.category === category);
+  }
+  
+  // If no quotes in category, fallback to all quotes
+  if (quotes.length === 0) {
+    quotes = motivationalQuotes;
+    category = 'all';
+  }
+  
+  // Get current index for this category
+  const currentIndex = categoryIndexes[category] || 0;
+  
+  // Get the quote at current index
+  const quote = quotes[currentIndex];
+  
+  // Increment index for next time (wrap around if we reach the end)
+  categoryIndexes[category] = (currentIndex + 1) % quotes.length;
+  
+  return quote;
+}
+
+// Get first quote from a category (without incrementing index)
+export function getFirstQuoteByCategory(category: string = 'all'): Quote {
+  let quotes: Quote[];
+  
+  if (category === 'all') {
+    quotes = motivationalQuotes;
+  } else {
+    // Only include quotes that exactly match the specified category
+    quotes = motivationalQuotes.filter(q => q.category === category);
+  }
+  
+  // If no quotes in category, fallback to all quotes
+  if (quotes.length === 0) {
+    quotes = motivationalQuotes;
+    category = 'all';
+  }
+  
+  // Reset index for this category to 0
+  categoryIndexes[category] = 0;
+  
+  // Always return the FIRST quote from this category (index 0)
+  return quotes[0];
+}
+
+// Reset index for a category (useful when switching categories)
+export function resetCategoryIndex(category: string): void {
+  // Make sure the category exists in our index tracker
+  if (!categoryIndexes[category]) {
+    categoryIndexes[category] = 0;
+  } else {
+    categoryIndexes[category] = 0;
+  }
 }

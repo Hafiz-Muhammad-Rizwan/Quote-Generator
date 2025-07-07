@@ -9,7 +9,9 @@ import {
   Quote, 
   fetchQuotesByCategory, 
   searchQuotes, 
-  getRandomQuote 
+  getNextQuoteByCategory,
+  getFirstQuoteByCategory,
+  resetCategoryIndex
 } from '@/services/quoteService';
 import { 
   copyToClipboard, 
@@ -30,7 +32,9 @@ import {
   Target,
   Lightbulb,
   Star,
-  Globe
+  Globe,
+  CloudRain,
+  HeartHandshake
 } from 'lucide-react';
 
 const categories = [
@@ -40,10 +44,13 @@ const categories = [
   { id: 'life', name: 'Life', icon: Heart },
   { id: 'wisdom', name: 'Wisdom', icon: Lightbulb },
   { id: 'happiness', name: 'Happiness', icon: Star },
+  { id: 'sad', name: 'Sad', icon: CloudRain },
+  { id: 'love', name: 'Love', icon: HeartHandshake },
 ];
 
 export default function QuoteGenerator() {
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
+  const [filteredQuotes, setFilteredQuotes] = useState<Quote[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -53,16 +60,20 @@ export default function QuoteGenerator() {
   const loadRandomQuote = useCallback(async () => {
     setIsLoading(true);
     try {
-      const quote = await getRandomQuote();
-      setCurrentQuote(quote);
-      setGradientClass(getRandomGradient());
+      const quote = getNextQuoteByCategory(selectedCategory);
+      if (quote) {
+        setCurrentQuote(quote);
+        setGradientClass(getRandomGradient());
+      } else {
+        toast.error('No quotes available for this category.');
+      }
     } catch (err) {
-      console.error('Load random quote error:', err);
+      console.error('Load quote error:', err);
       toast.error('Failed to load quote. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedCategory]);
 
   // Handle copy quote
   const handleCopyQuote = useCallback(async () => {
@@ -91,7 +102,7 @@ export default function QuoteGenerator() {
   // Initialize component and keyboard shortcuts
   useEffect(() => {
     setGradientClass(getRandomGradient());
-    loadRandomQuote();
+    loadQuotesByCategory('all'); // Load all quotes initially
 
     // Add keyboard shortcuts
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -109,12 +120,29 @@ export default function QuoteGenerator() {
   const loadQuotesByCategory = async (category: string) => {
     setIsLoading(true);
     try {
+      // Reset the index for this category to start from beginning
+      resetCategoryIndex(category);
+      
+      // Get the quotes for this category
       const quotes = await fetchQuotesByCategory(category === 'all' ? undefined : category);
-      if (quotes.length > 0) {
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        setCurrentQuote(randomQuote);
+      
+      // Validate quotes array
+      const validQuotes = Array.isArray(quotes) ? quotes.filter(q => q && q.quote && q.author) : [];
+      setFilteredQuotes(validQuotes);
+      
+      // Immediately set the first quote from this category
+      const quote = getFirstQuoteByCategory(category);
+      if (quote) {
+        setCurrentQuote(quote);
         setGradientClass(getRandomGradient());
+      } else {
+        setCurrentQuote(null);
+        toast.info('No quotes available for this category.');
       }
+      
+      // Show success message with correct count
+      const categoryName = categories.find(cat => cat.id === category)?.name || 'All';
+      toast.success(`Showing ${validQuotes.length} ${categoryName.toLowerCase()} quote${validQuotes.length === 1 ? '' : 's'}`);
     } catch (err) {
       console.error('Load quotes by category error:', err);
       toast.error('Failed to load quotes. Please try again.');
@@ -126,20 +154,25 @@ export default function QuoteGenerator() {
   // Search quotes with debouncing
   const performSearch = useCallback(async (query: string) => {
     if (query.trim().length === 0) {
-      loadRandomQuote();
+      // If search is cleared, reload current category
+      loadQuotesByCategory(selectedCategory);
       return;
     }
 
     setIsLoading(true);
     try {
       const quotes = await searchQuotes(query);
-      if (quotes.length > 0) {
-        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        setCurrentQuote(randomQuote);
+      const validQuotes = Array.isArray(quotes) ? quotes.filter(q => q && q.quote && q.author) : [];
+      setFilteredQuotes(validQuotes);
+      
+      if (validQuotes.length > 0) {
+        // Show first quote from search results
+        setCurrentQuote(validQuotes[0]);
         setGradientClass(getRandomGradient());
+        toast.success(`Found ${validQuotes.length} quote${validQuotes.length === 1 ? '' : 's'} matching "${query}"`);
       } else {
-        toast.info('No quotes found for your search. Showing a random quote.');
-        loadRandomQuote();
+        toast.info('No quotes found for your search. Showing current category.');
+        loadQuotesByCategory(selectedCategory);
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -147,7 +180,7 @@ export default function QuoteGenerator() {
     } finally {
       setIsLoading(false);
     }
-  }, [loadRandomQuote]);
+  }, [selectedCategory]);
 
   const debouncedSearch = useMemo(
     () => debounce(performSearch, 500),
@@ -164,7 +197,7 @@ export default function QuoteGenerator() {
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
     setSearchQuery(''); // Clear search when changing category
-    loadQuotesByCategory(category);
+    loadQuotesByCategory(category); // Load quotes immediately
   };
 
   return (
@@ -240,8 +273,8 @@ export default function QuoteGenerator() {
                   <div className="space-y-6 animate-fade-in">
                     {/* Quote marks decoration */}
                     <div className="relative">
-                      <div className="absolute -top-8 -left-8 text-6xl text-white/20 font-serif">&ldquo;</div>
-                      <div className="absolute -bottom-8 -right-8 text-6xl text-white/20 font-serif">&rdquo;</div>
+                      <div className="absolute -top-8 -left-8 text-6xl text-white/20 font-serif">“</div>
+                      <div className="absolute -bottom-8 -right-8 text-6xl text-white/20 font-serif">”</div>
                       
                       <blockquote className="text-2xl md:text-3xl font-medium text-white leading-relaxed max-w-3xl mx-auto px-12">
                         {currentQuote.quote}
@@ -264,7 +297,7 @@ export default function QuoteGenerator() {
                   </div>
                 ) : (
                   <div className="text-center text-white/60">
-                    <p className="text-xl">Click &ldquo;New Quote&rdquo; to get started!</p>
+                    <p className="text-xl">Click “New Quote” to get started!</p>
                   </div>
                 )}
               </div>
@@ -279,7 +312,7 @@ export default function QuoteGenerator() {
                 className={`bg-gradient-to-r ${gradientClass} hover:opacity-90 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}
               >
                 <RefreshCw className={`w-5 h-5 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                New Quote
+                {selectedCategory !== 'all' ? `Next ${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Quote` : 'Next Quote'}
               </Button>
 
               <Button
@@ -305,9 +338,16 @@ export default function QuoteGenerator() {
               </Button>
             </div>
 
+            {/* Category Info */}
+            {selectedCategory !== 'all' && filteredQuotes.length > 0 && (
+              <div className="text-center text-white/70 text-sm">
+                <p>Showing quotes from <span className="font-semibold text-white/90">{selectedCategory}</span> category ({filteredQuotes.length} available)</p>
+              </div>
+            )}
+
             {/* Keyboard shortcuts hint */}
             <div className="text-center text-white/50 text-sm">
-              <p>💡 Press <kbd className="px-2 py-1 bg-white/10 rounded text-xs">Space</kbd> for a new quote</p>
+              <p>💡 Press <kbd className="px-2 py-1 bg-white/10 rounded text-xs">Space</kbd> for next quote</p>
             </div>
           </CardContent>
         </Card>
